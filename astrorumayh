@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>رحلة عبر الفيزياء الفلكية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: تم تصميم التطبيق كتطبيق من صفحة واحدة (SPA) مع تنقل قائم على "التبويبات" (Tabs) لكسر النص الطويل للتقرير. الهيكل يتكون من: 1) الرئيسية (مقدمة)، 2) الجدول الزمني (يدمج الجزء 1 و 2 من التقرير في جدول زمني تفاعلي)، 3) أعمدة العلم (يغطي الجزء 3 باستخدام بطاقات تفاعلية)، 4) معادلات الكون (يغطي الجزء 4 مع شروحات تفاعلية للمعادلات)، 5) الآفاق الحديثة (يغطي الجزء 5 مع رسم بياني لتكوين الكون). تم اختيار هذا الهيكل لتمكين المستخدم من الاستكشاف غير الخطي (non-linear) للموضوعات المعقدة، بدلاً من إجباره على قراءة تقرير خطي طويل، مما يعزز سهولة الاستخدام والفهم. -->
+    <!-- Visualization & Content Choices: 
+    1. (التقرير: الجزء 1 و 2 - التاريخ) -> الهدف: تنظيم التغيير -> العرض: جدول زمني عمودي (HTML/CSS) -> التفاعل: إظهار/إخفاء التفاصيل عند النقر (JS) -> المبرر: أكثر جاذبية من النص العادي.
+    2. (التقرير: الجزء 3 - أعمدة العلم) -> الهدف: تنظيم المعلومات -> العرض: قائمة أكورديون (HTML/CSS) -> التفاعل: فتح/إغلاق الأقسام عند النقر (JS) -> المبرر: لتبسيط المحتوى المعقد. تم إضافة ميزة ✨ مساعد مفاهيمي باستخدام Gemini API لشرح هذه المفاهيم بشكل مبسط.
+    3. (التقرير: الجزء 4 - المعادلات) -> الهدف: إعلام وتفاعل -> العرض: بطاقات شبكية للمعادلات (HTML/CSS) -> التفاعل: النقر لإظهار شرح مفصل للمتغيرات والأهمية (JS). تم إضافة ميزة ✨ محلل المعادلات باستخدام Gemini API لإنشاء سيناريوهات تطبيقية للمعادلات.
+    4. (التقرير: الجزء 5 - الآفاق الحديثة) -> الهدف: مقارنة المكونات -> العرض: رسم بياني دائري (Chart.js Canvas) لإظهار نسب المادة المظلمة/الطاقة المظلمة/المادة العادية + نص -> التفاعل: تلميحات (Tooltips) عند المرور -> المبرر: التمثيل البصري هو الأفضل لفهم نسب تكوين الكون. (داخل حاوية .chart-container مستجيبة).
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #FFFAF0; 
+        }
+        .nav-tab {
+            @apply px-4 py-3 text-lg font-medium text-neutral-600 border-b-4 border-transparent transition-colors duration-300;
+        }
+        .nav-tab.active {
+            @apply text-amber-700 border-amber-600;
+        }
+        .content-section {
+            @apply p-4 md:p-8 bg-white rounded-2xl shadow-lg;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        .math-equation {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 1.3rem;
+            line-height: 1.6;
+            color: #333;
+            direction: ltr;
+            text-align: center;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        .math-var {
+            font-style: italic;
+            color: #D97706; 
+        }
+        .math-sup {
+            vertical-align: super;
+            font-size: 0.8em;
+        }
+        .math-sub {
+            vertical-align: sub;
+            font-size: 0.8em;
+        }
+        .interactive-toggle {
+            @apply text-amber-700 font-bold cursor-pointer hover:text-amber-800 transition-colors;
+        }
+        .timeline-item {
+            @apply relative ps-8 sm:ps-12 pb-8;
+        }
+        .timeline-connector {
+            @apply absolute top-5 start-3 sm:start-5 w-px h-full bg-amber-300;
+        }
+        .timeline-dot {
+            @apply absolute top-5 start-1 sm:start-3 w-4 h-4 rounded-full bg-amber-600 border-4 border-white;
+        }
+        .gemini-btn {
+            @apply mt-3 px-4 py-2 bg-neutral-700 text-white text-sm font-bold rounded-lg shadow-md hover:bg-neutral-800 transition-colors flex items-center justify-center space-x-2 rtl:space-x-reverse;
+        }
+        .loading-indicator {
+            @apply mt-4 p-3 bg-neutral-100 text-neutral-600 rounded-lg text-sm text-center;
+        }
+        .gemini-output {
+            @apply mt-4 p-4 bg-amber-50 border border-amber-300 rounded-lg text-neutral-800 leading-relaxed text-sm;
+        }
+    </style>
+</head>
+<body class="text-neutral-800">
+
+    <header class="bg-white shadow-md">
+        <div class="container mx-auto px-4 py-6 text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-amber-800">رحلة عبر الفيزياء الفلكية</h1>
+            <p class="text-xl text-neutral-600 mt-2">استكشاف تفاعلي لتاريخ الكون وقوانينه</p>
+        </div>
+    </header>
+
+    <nav class="sticky top-0 bg-white shadow-sm z-10">
+        <div class="container mx-auto flex flex-wrap justify-center overflow-x-auto">
+            <button class="nav-tab active" data-target="home-content">الرئيسية</button>
+            <button class="nav-tab" data-target="timeline-content">الجدول الزمني</button>
+            <button class="nav-tab" data-target="pillars-content">أعمدة العلم</button>
+            <button class="nav-tab" data-target="equations-content">معادلات الكون</button>
+            <button class="nav-tab" data-target="frontiers-content">الآفاق الحديثة</button>
+            <button class="nav-tab" data-target="conclusion-content">الخاتمة</button>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 md:p-8">
+        
+        <section id="home-content" class="content-section">
+            <h2 class="text-3xl font-bold text-amber-700 mb-6">مقدمة: جسر بين الأرض والسماء</h2>
+            <p class="text-lg leading-relaxed text-neutral-700">
+                الفيزياء الفلكية (Astrophysics) هي فرع من فروع علوم الفضاء الذي يطبق مبادئ ونظريات الفيزياء والكيمياء لفهم طبيعة الأجرام السماوية (مثل النجوم، والكواكب، والمجرات) والظواهر الكونية (مثل الانفجار العظيم، والطاقة المظلمة). إنها ليست مجرد "رصد" للسماء، بل هي محاولة "لفهم" الآليات التي تحكم الكون. لقد نقلنا هذا العلم من مجرد متأملين في النقاط الضوئية ليلاً إلى مستكشفين لتركيب النجوم، وتاريخ المجرات، ومصير الكون نفسه.
+            </p>
+            <p class="text-lg leading-relaxed text-neutral-700 mt-4">
+                يهدف هذا التطبيق التفاعلي إلى تقديم استعراض شامل للفيزياء الفلكية، بدءاً من جذورها التاريخية، مروراً بالثورات العلمية التي شكلتها، وصولاً إلى المعادلات الأساسية التي تحكمها، وانتهاءً بالآفاق الحديثة والتحديات الكبرى التي تواجه علماء هذا المجال اليوم. اضغط على التبويبات أعلاه لتبدأ رحلتك.
+            </p>
+        </section>
+
+        <section id="timeline-content" class="content-section hidden">
+            <h2 class="text-3xl font-bold text-amber-700 mb-8">الجدول الزمني: من الرصد إلى الفهم</h2>
+            <p class="text-lg leading-relaxed text-neutral-700 mb-8">
+                لم تولد الفيزياء الفلكية كعلم مستقل، بل تطورت عبر آلاف السنين من الرصد الدقيق والقفزات الفكرية الجريئة. هذا الجدول الزمني يسلط الضوء على أهم المحطات التي شكلت فهمنا للكون. انقر على كل محطة لاستكشاف المزيد من التفاصيل.
+            </p>
+            <div class="relative">
+                <div class="timeline-item">
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-dot"></div>
+                    <h3 class="text-2xl font-bold text-neutral-800">علم الفلك القديم (آلاف السنين ق.م - 1500م)</h3>
+                    <p class="interactive-toggle" data-toggle="timeline-1">اكتشف المزيد...</p>
+                    <div id="timeline-1" class="hidden mt-4 text-neutral-700 leading-relaxed space-y-2">
+                        <p>لآلاف السنين، كان علم الفلك وصفياً. رصد البابليون والمصريون واليونانيون حركات الكواكب. وضع أرسطو وبطليموس نموذج مركزية الأرض، الذي كان محاولة "هندسية" لوصف الحركات المرصودة، وليس "فيزيائية" لشرح أسبابها.</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-dot"></div>
+                    <h3 class="text-2xl font-bold text-neutral-800">الثورة الكوبرنيكية وكبلر (القرن 16-17)</h3>
+                    <p class="interactive-toggle" data-toggle="timeline-2">اكتشف المزيد...</p>
+                    <div id="timeline-2" class="hidden mt-4 text-neutral-700 leading-relaxed space-y-2">
+                        <p>اقترح نيكولاس كوبرنيكوس نموذج مركزية الشمس. لاحقاً، استخدم يوهانس كبلر أرصاد تايكو براهي الدقيقة لوضع قوانينه الثلاثة لحركة الكواكب. كانت هذه أول قوانين "رياضية" تصف بدقة كيف تتحرك الكواكب (مثل المدارات الإهليلجية)، مما مهد الطريق للفيزياء الحقيقية.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-dot"></div>
+                    <h3 class="text-2xl font-bold text-neutral-800">نيوتن وتوحيد الفيزياء (أواخر القرن 17)</h3>
+                    <p class="interactive-toggle" data-toggle="timeline-3">اكتشف المزيد...</p>
+                    <div id="timeline-3" class="hidden mt-4 text-neutral-700 leading-relaxed space-y-2">
+                        <p>جاءت القفزة الكبرى مع إسحاق نيوتن. قانون الجذب العام لنيوتن لم يصف فقط "كيف" تتحرك الأجسام، بل "لماذا". أوضح نيوتن أن نفس القوة التي تسقط التفاحة هي التي تبقي القمر في مداره. لأول مرة، توحدت قوانين الفيزياء على الأرض وفي السماء. هذه كانت المعادلة التأسيسية للفيزياء الفلكية.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-dot"></div>
+                    <h3 class="text-2xl font-bold text-neutral-800">التحليل الطيفي: بصمة النجوم (القرن 19)</h3>
+                    <p class="interactive-toggle" data-toggle="timeline-4">اكتشف المزيد...</p>
+                    <div id="timeline-4" class="hidden mt-4 text-neutral-700 leading-relaxed space-y-2">
+                        <p>اكتشف فراونهوفر وكيرشوف وبنزن أن "الخطوط الطيفية" في ضوء الشمس هي "بصمات" فريدة للعناصر الكيميائية. كان هذا اكتشافاً مذهلاً: يمكننا معرفة مم تتكون النجوم البعيدة بمجرد تحليل ضوئها! هذه كانت الولادة الحقيقية للفيزياء الفلكية كعلم مستقل يدرس "ما هي" النجوم، وليس فقط "أين" هي.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <h3 class="text-2xl font-bold text-neutral-800">مخطط H-R وتصنيف النجوم (أوائل القرن 20)</h3>
+                    <p class="interactive-toggle" data-toggle="timeline-5">اكتشف المزيد...</p>
+                    <div id="timeline-5" class="hidden mt-4 text-neutral-700 leading-relaxed space-y-2">
+                        <p>قامت آني جمب كانون و "حواسيب هارفارد" بتصنيف مئات الآلاف من النجوم بناءً على أطيافها. لاحقاً، قام هيرتزسبرونغ وراسل برسم لمعان النجوم مقابل درجة حرارتها، فنتج "مخطط H-R". أظهر هذا المخطط أن النجوم تتبع دورة حياة منظمة، وأصبح حجر الزاوية في دراسة تطور النجوم.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="pillars-content" class="content-section hidden">
+            <h2 class="text-3xl font-bold text-amber-700 mb-8">أعمدة العلم الحديث</h2>
+            <p class="text-lg leading-relaxed text-neutral-700 mb-8">
+                في القرن العشرين، قامت ثلاث ثورات في الفيزياء بتزويدنا بالأدوات اللازمة لفهم أعمق الظواهر الكونية، من محركات النجوم إلى مصير الكون. انقر على كل عمود لاكتشاف دوره، أو استخدم ✨ مساعد مفاهيمي للحصول على شرح مبسط.
+            </p>
+            <div class="space-y-4">
+                <div class="border border-amber-200 rounded-lg overflow-hidden">
+                    <h3 class="accordion-toggle text-2xl font-bold text-neutral-800 p-5 cursor-pointer bg-amber-50 hover:bg-amber-100 transition-colors flex justify-between items-center">
+                        <span>1. نسبية أينشتاين: فهم الجاذبية والطاقة</span>
+                        <span class="accordion-icon text-amber-700 text-3xl font-light">+</span>
+                    </h3>
+                    <div class="accordion-content hidden p-5 border-t border-amber-200 text-neutral-700 leading-relaxed space-y-3">
+                        <p><strong>النسبية الخاصة (1905):</strong> قدمت لنا المعادلة $E = mc^2$. هذه المعادلة هي مفتاح فهم "كيف تضيء النجوم". أوضحت أن النجوم تحول جزءاً صغيراً من كتلتها ($m$) إلى كميات هائلة من الطاقة ($E$) عبر الاندماج النووي.</p>
+                        <p><strong>النسبية العامة (1915):</strong> أعادت تعريف الجاذبية. لم تعد الجاذبية "قوة"، بل هي "انحناء" في نسيج الزمكان تسببه الكتلة. هذه النظرية ضرورية لفهم الظواهر المتطرفة كالثقوب السوداء، تمدد الكون، وموجات الجاذبية.</p>
+                        <button class="gemini-btn" onclick="getGeminiExplanation('النسبية الخاصة والنسبية العامة لأينشتاين')" id="gemini-btn-1">
+                            ✨ مساعد مفاهيمي: شرح مبسط
+                        </button>
+                        <div id="gemini-output-1" class="gemini-output hidden"></div>
+                    </div>
+                </div>
+
+                <div class="border border-amber-200 rounded-lg overflow-hidden">
+                    <h3 class="accordion-toggle text-2xl font-bold text-neutral-800 p-5 cursor-pointer bg-amber-50 hover:bg-amber-100 transition-colors flex justify-between items-center">
+                        <span>2. ميكانيكا الكم: فهم المادة</span>
+                        <span class="accordion-icon text-amber-700 text-3xl font-light">+</span>
+                    </h3>
+                    <div class="accordion-content hidden p-5 border-t border-amber-200 text-neutral-700 leading-relaxed space-y-3">
+                        <p>تصف ميكانيكا الكم عالم الذرات والجسيمات. في الفيزياء الفلكية، هي أساسية لـ:</p>
+                        <ul class="list-disc list-outside rtl:mr-6 space-y-2">
+                            <li><strong>تفسير الأطياف:</strong> تشرح "لماذا" العناصر تمتص وتطلق الضوء عند أطوال موجية محددة (بسبب قفزات الإلكترونات بين مستويات طاقة مكممة).</li>
+                            <li><strong>المادة المتحللة:</strong> في نهاية حياة النجوم (الأقزام البيضاء والنجوم النيوترونية)، تمنع قوانين الكم (مبدأ باولي للاستبعاد) النجم من الانهيار التام تحت تأثير جاذبيته الهائلة.</li>
+                        </ul>
+                        <button class="gemini-btn" onclick="getGeminiExplanation('ميكانيكا الكم وتطبيقها في الفيزياء الفلكية')" id="gemini-btn-2">
+                            ✨ مساعد مفاهيمي: شرح مبسط
+                        </button>
+                        <div id="gemini-output-2" class="gemini-output hidden"></div>
+                    </div>
+                </div>
+
+                <div class="border border-amber-200 rounded-lg overflow-hidden">
+                    <h3 class="accordion-toggle text-2xl font-bold text-neutral-800 p-5 cursor-pointer bg-amber-50 hover:bg-amber-100 transition-colors flex justify-between items-center">
+                        <span>3. الفيزياء النووية: فهم محرك النجوم</span>
+                        <span class="accordion-icon text-amber-700 text-3xl font-light">+</span>
+                    </h3>
+                    <div class="accordion-content hidden p-5 border-t border-amber-200 text-neutral-700 leading-relaxed space-y-3">
+                        <p>في ثلاثينيات القرن العشرين، طبق العلماء المعرفة النووية على الظروف القاسية داخل النجوم. لقد اكتشفوا الآليات الدقيقة للاندماج النووي:</p>
+                        <ul class="list-disc list-outside rtl:mr-6 space-y-2">
+                            <li><strong>سلسلة بروتون-بروتون:</strong> الآلية السائدة في النجوم كالشمس، حيث يندمج الهيدروجين لتكوين الهيليوم.</li>
+                            <li><strong>دورة CNO:</strong> الآلية السائدة في النجوم الأكبر كتلة.</li>
+                        </ul>
+                        <p>هذه الاكتشافات شرحت أخيراً "لماذا" تضيء النجوم لمليارات السنين وما هو مصدر طاقتها الهائلة.</p>
+                        <button class="gemini-btn" onclick="getGeminiExplanation('الاندماج النووي ومحركات النجوم')" id="gemini-btn-3">
+                            ✨ مساعد مفاهيمي: شرح مبسط
+                        </button>
+                        <div id="gemini-output-3" class="gemini-output hidden"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="equations-content" class="content-section hidden">
+            <h2 class="text-3xl font-bold text-amber-700 mb-8">معادلات الكون</h2>
+            <p class="text-lg leading-relaxed text-neutral-700 mb-8">
+                الفيزياء الفلكية هي علم كمي يعتمد على معادلات مستمدة من الفيزياء الأساسية لوصف الكون. هذه بعض أهم المعادلات التي نستخدمها. انقر على "شرح المعادلة" لفهم مكوناتها وأهميتها، أو استخدم ✨ محلل المعادلات للحصول على سيناريو تطبيقي.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <div class="border border-amber-200 rounded-lg p-5 bg-amber-50/50">
+                    <h3 class="text-2xl font-bold text-neutral-800 mb-3">قانون الجذب العام لنيوتن</h3>
+                    <div class="math-equation">
+                        <span class="math-var">F</span> = <span class="math-var">G</span> 
+                        <frac>
+                            (<span class="math-var">m</span><span class="math-sub">1</span><span class="math-var">m</span><span class="math-sub">2</span>)
+                        </frac>
+                        /
+                        <span class="math-var">r</span><span class="math-sup">2</span>
+                    </div>
+                    <p class="interactive-toggle mt-4" data-toggle="eq-1">شرح المعادلة...</p>
+                    <div id="eq-1" class="hidden mt-4 text-neutral-700 space-y-2">
+                        <p><span class="math-var">F</span>: قوة الجاذبية بين كتلتين.</p>
+                        <p><span class="math-var">G</span>: ثابت الجذب العام.</p>
+                        <p><span class="math-var">m</span><span class="math-sub">1</span> و <span class="math-var">m</span><span class="math-sub">2</span>: الكتلتان.</p>
+                        <p><span class="math-var">r</span>: المسافة بين مركزيهما.</p>
+                        <p><strong>الأهمية:</strong> المعادلة التأسيسية التي وحدت الفيزياء الأرضية والسماوية، وتصف كيف تحكم الجاذبية حركة الكواكب والأقمار.</p>
+                    </div>
+                    <button class="gemini-btn" onclick="getGeminiScenario('قانون الجذب العام لنيوتن')" id="scenario-btn-1">
+                        ✨ محلل المعادلات: سيناريو تطبيقي
+                    </button>
+                    <div id="scenario-output-1" class="gemini-output hidden"></div>
+                </div>
+
+                <div class="border border-amber-200 rounded-lg p-5 bg-amber-50/50">
+                    <h3 class="text-2xl font-bold text-neutral-800 mb-3">معادلة الطاقة لأينشتاين</h3>
+                    <div class="math-equation">
+                        <span class="math-var">E</span> = <span class="math-var">m</span><span class="math-var">c</span><span class="math-sup">2</span>
+                    </div>
+                    <p class="interactive-toggle mt-4" data-toggle="eq-2">شرح المعادلة...</p>
+                    <div id="eq-2" class="hidden mt-4 text-neutral-700 space-y-2">
+                        <p><span class="math-var">E</span>: الطاقة.</p>
+                        <p><span class="math-var">m</span>: الكتلة.</p>
+                        <p><span class="math-var">c</span>: سرعة الضوء (ثابت).</p>
+                        <p><strong>الأهمية:</strong> مفتاح فهم طاقة النجوم. تشرح كيف يمكن تحويل كمية صغيرة جداً من الكتلة إلى كمية هائلة من الطاقة عبر الاندماج النووي.</p>
+                    </div>
+                    <button class="gemini-btn" onclick="getGeminiScenario('معادلة الطاقة E = mc²')" id="scenario-btn-2">
+                        ✨ محلل المعادلات: سيناريو تطبيقي
+                    </button>
+                    <div id="scenario-output-2" class="gemini-output hidden"></div>
+                </div>
+
+                <div class="border border-amber-200 rounded-lg p-5 bg-amber-50/50">
+                    <h3 class="text-2xl font-bold text-neutral-800 mb-3">قانون ستيفان-بولتزمان</h3>
+                    <div class="math-equation">
+                        <span class="math-var">L</span> = 4&pi;<span class="math-var">R</span><span class="math-sup">2</span>&sigma;<span class="math-var">T</span><span class="math-sup">4</span>
+                    </div>
+                    <p class="interactive-toggle mt-4" data-toggle="eq-3">شرح المعادلة...</p>
+                    <div id="eq-3" class="hidden mt-4 text-neutral-700 space-y-2">
+                        <p><span class="math-var">L</span>: اللمعان الكلي للنجم (طاقته).</p>
+                        <p><span class="math-var">R</span>: نصف قطر النجم.</p>
+                        <p><span class="math-var">T</span>: درجة حرارة سطح النجم.</p>
+                        <p>&sigma; (سيجما): ثابت ستيفان-بولتزمان.</p>
+                        <p><strong>الأهمية:</strong> تسمح لنا بحساب "حجم" النجم (نصف قطره) إذا عرفنا لمعانه ودرجة حرارته (التي نعرفها من لونه).</p>
+                    </div>
+                    <button class="gemini-btn" onclick="getGeminiScenario('قانون ستيفان-بولتزمان')" id="scenario-btn-3">
+                        ✨ محلل المعادلات: سيناريو تطبيقي
+                    </button>
+                    <div id="scenario-output-3" class="gemini-output hidden"></div>
+                </div>
+
+                <div class="border border-amber-200 rounded-lg p-5 bg-amber-50/50">
+                    <h3 class="text-2xl font-bold text-neutral-800 mb-3">قانون هابل</h3>
+                    <div class="math-equation">
+                        <span class="math-var">v</span> = <span class="math-var">H</span><span class="math-sub">0</span> <span class="math-var">d</span>
+                    </div>
+                    <p class="interactive-toggle mt-4" data-toggle="eq-4">شرح المعادلة...</p>
+                    <div id="eq-4" class="hidden mt-4 text-neutral-700 space-y-2">
+                        <p><span class="math-var">v</span>: سرعة ابتعاد مجرة عنا.</p>
+                        <p><span class="math-var">H</span><span class="math-sub">0</span>: ثابت هابل (معدل تمدد الكون).</p>
+                        <p><span class="math-var">d</span>: المسافة إلى المجرة.</p>
+                        <p><strong>الأهمية:</strong> الدليل الرصدي الأول على أن الكون "يتمدد". كلما كانت المجرة أبعد، ابتعدت عنا أسرع. هذا هو أساس علم الكونيات الحديث.</p>
+                    </div>
+                    <button class="gemini-btn" onclick="getGeminiScenario('قانون هابل')" id="scenario-btn-4">
+                        ✨ محلل المعادلات: سيناريو تطبيقي
+                    </button>
+                    <div id="scenario-output-4" class="gemini-output hidden"></div>
+                </div>
+
+            </div>
+        </section>
+
+        <section id="frontiers-content" class="content-section hidden">
+            <h2 class="text-3xl font-bold text-amber-700 mb-8">الآفاق الحديثة والتحديات الكبرى</h2>
+            <p class="text-lg leading-relaxed text-neutral-700 mb-8">
+                الفيزياء الفلكية اليوم تواجه أكبر الألغاز في تاريخها. التكنولوجيا المتقدمة تفتح نوافذ جديدة، لكنها تكشف أيضاً عن مدى ضآلة ما نعرفه. الرسم البياني أدناه يوضح اللغز الأكبر: تكوين الكون.
+            </p>
+            
+            <div class="chart-container mb-8">
+                <canvas id="universeCompositionChart"></canvas>
+            </div>
+            
+            <p class="text-lg leading-relaxed text-neutral-700 mb-4">
+                كما يوضح الرسم، كل ما نراه ونفهمه (المادة العادية التي تتكون منها النجوم والكواكب ونحن) لا يشكل سوى 5% من الكون. الباقي هو لغز:
+            </p>
+            <ul class="list-disc list-outside rtl:mr-6 space-y-3 text-neutral-700 text-lg">
+                <li><strong>المادة المظلمة (27%):</strong> مادة غامضة لا نراها، لكن جاذبيتها هي التي تمسك المجرات معاً. لا نعرف ما هي.</li>
+                <li><strong>الطاقة المظلمة (68%):</strong> قوة غامضة أكثر، تسبب "تسارع" تمدد الكون، وتعمل كـ "جاذبية مضادة". لا نعرف ما هي.</li>
+            </ul>
+
+            <h3 class="text-2xl font-bold text-neutral-800 mt-10 mb-4">نوافذ جديدة على الكون</h3>
+            <div class="space-y-4 text-lg text-neutral-700">
+                <p><strong>الكواكب الخارجية (Exoplanets):</strong> قبل 30 عاماً، لم نكن نعرف أي كواكب خارج نظامنا الشمسي. اليوم، أكدنا وجود "آلاف" منها. الفيزياء الفلكية تدرس الآن أغلفة جوية لهذه العوالم البعيدة بحثاً عن علامات الحياة.</p>
+                <p><strong>موجات الجاذبية (Gravitational Waves):</strong> في 2015، "سمعنا" لأول مرة اهتزازات الزمكان الناتجة عن اصطدام ثقبين أسودين. هذا فرع جديد تماماً يسمح لنا برصد أعنف الأحداث في الكون والتي كانت خفية تماماً.</p>
+                <p><strong>فيزياء الثقوب السوداء:</strong> لم تعد مجرد فضول نظري. لقد قمنا بتصوير "ظل" الثقب الأسود، وندرس كيف تشكل هذه الوحوش مراكز المجرات وتؤثر على تطورها.</p>
+            </div>
+        </section>
+
+        <section id="conclusion-content" class="content-section hidden">
+            <h2 class="text-3xl font-bold text-amber-700 mb-6">خاتمة: رحلة مستمرة</h2>
+            <p class="text-lg leading-relaxed text-neutral-700">
+                بدأت رحلة الفيزياء الفلكية من محاولة بسيطة لتتبع النقاط الضوئية في السماء. قادتنا عبر ثورات فكرية هائلة، من مركزية الأرض إلى كون يتمدد ويتسارع. مصدر قوتها هو تطبيق قوانين الفيزياء الأساسية على الكون، والنظر إلى الكون كمختبر فيزيائي هائل.
+            </p>
+            <p class="text-lg leading-relaxed text-neutral-700 mt-4">
+                كل معادلة، من قانون نيوتن البسيط إلى معادلات فريدمان المعقدة، لم تأت من فراغ، بل بُنيت على أكتاف ملاحظات دقيقة ونظريات راسخة وقفزات عبقرية.
+            </p>
+            <p class="text-lg leading-relaxed text-neutral-700 mt-4">
+                اليوم، تقف الفيزياء الفلكية أمام أسئلة هي الأعمق في تاريخ العلم: ما هي المادة المظلمة؟ ما هي الطاقة المظلمة؟ هل نحن وحدنا في الكون؟ إنها رحلة مستمرة، وكلما أجبنا عن سؤال، كشف لنا الكون عن عشرة أسئلة جديدة وأكثر عمقاً.
+            </p>
+        </section>
+    </main>
+
+    <footer class="text-center p-6 mt-10 text-neutral-500">
+        <p>تطبيق تفاعلي مبني على بحث الفيزياء الفلكية. عمل عبدالله الرميح</p>
+    </footer>
+
+    <script>
+        const apiKey = ""; 
+        const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=" + apiKey;
+
+        function generateUUID() {
+            const hash = CryptoJS.MD5(Date.now().toString() + Math.random().toString());
+            const hashStr = hash.toString(CryptoJS.enc.Hex);
+            return hashStr.substring(0, 8) + '-' + hashStr.substring(8, 12) + '-' + hashStr.substring(12, 16) + '-' + hashStr.substring(16, 20) + '-' + hashStr.substring(20, 32);
+        }
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : generateUUID();
+        const userId = generateUUID(); 
+
+        async function fetchGeminiResponse(systemPrompt, userQuery, outputElementId) {
+            const outputElement = document.getElementById(outputElementId);
+            const buttonElement = outputElement.previousElementSibling;
+            
+            outputElement.innerHTML = '<div class="loading-indicator">جاري إنشاء الإجابة بواسطة Gemini... ⏳</div>';
+            outputElement.classList.remove('hidden');
+            buttonElement.disabled = true;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                }
+            };
+
+            let response = null;
+            let attempts = 0;
+            const maxAttempts = 3;
+
+            while (attempts < maxAttempts) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        break;
+                    } else if (response.status === 429) {
+                        // Exponential backoff for rate limiting
+                        const delay = Math.pow(2, attempts) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        attempts++;
+                    } else {
+                        throw new Error(`API returned status ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    // Handle non-429 errors
+                    const delay = Math.pow(2, attempts) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    attempts++;
+                }
+            }
+
+            buttonElement.disabled = false;
+
+            if (response && response.ok) {
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    outputElement.innerHTML = text.replace(/\n/g, '<br>');
+                } else {
+                    outputElement.innerHTML = '<div class="text-red-600">عذرًا، لم يتمكن Gemini من إنشاء إجابة.</div>';
+                }
+            } else {
+                outputElement.innerHTML = '<div class="text-red-600">فشل الاتصال بـ Gemini بعد عدة محاولات. يرجى المحاولة مرة أخرى لاحقًا.</div>';
+            }
+        }
+
+        window.getGeminiExplanation = function(concept) {
+            const outputId = `gemini-output-${concept.includes('النسبية') ? 1 : concept.includes('الكم') ? 2 : 3}`;
+            const systemPrompt = `أنت مدرس فيزياء فلكية خبير. قم بشرح مفهوم "${concept}" المعقد بأسلوب مبسط وشيق ومفهوم لغير المتخصصين، مع استخدام التشبيهات إن أمكن. يجب أن يكون الشرح في فقرة واحدة أو فقرتين قصيرتين باللغة العربية.`;
+            const userQuery = `اشرح مفهوم: ${concept}`;
+            fetchGeminiResponse(systemPrompt, userQuery, outputId);
+        }
+
+        window.getGeminiScenario = function(equationName) {
+            const outputId = `scenario-output-${equationName.includes('الجذب') ? 1 : equationName.includes('الطاقة') ? 2 : equationName.includes('ستيفان') ? 3 : 4}`;
+            const systemPrompt = `أنت خبير فيزياء فلكية ومصمم سيناريوهات. بناءً على معادلة "${equationName}"، قم بإنشاء سيناريو تطبيقي عملي أو مشكلة بسيطة يجب حلها باستخدام هذه المعادلة. اذكر البيانات المطلوبة وما هو المطلوب حسابه في السيناريو. يجب أن يكون السيناريو موجزاً وفي فقرة واحدة باللغة العربية.`;
+            const userQuery = `أنشئ سيناريو تطبيقي للمعادلة: ${equationName}`;
+            fetchGeminiResponse(systemPrompt, userQuery, outputId);
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            const tabs = document.querySelectorAll('.nav-tab');
+            const contents = document.querySelectorAll('.content-section');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    const targetId = tab.getAttribute('data-target');
+                    
+                    contents.forEach(content => {
+                        if (content.id === targetId) {
+                            content.classList.remove('hidden');
+                        } else {
+                            content.classList.add('hidden');
+                        }
+                    });
+                });
+            });
+
+            const toggles = document.querySelectorAll('.interactive-toggle');
+            toggles.forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const targetId = toggle.getAttribute('data-toggle');
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.classList.toggle('hidden');
+                        toggle.textContent = targetElement.classList.contains('hidden') ? 'اكتشف المزيد...' : 'إخفاء التفاصيل';
+                        if(toggle.getAttribute('data-toggle').startsWith('eq-')) {
+                           toggle.textContent = targetElement.classList.contains('hidden') ? 'شرح المعادلة...' : 'إخفاء الشرح';
+                        }
+                    }
+                });
+            });
+
+            const accordions = document.querySelectorAll('.accordion-toggle');
+            accordions.forEach(accordion => {
+                accordion.addEventListener('click', () => {
+                    const content = accordion.nextElementSibling;
+                    const icon = accordion.querySelector('.accordion-icon');
+                    content.classList.toggle('hidden');
+                    if (content.classList.contains('hidden')) {
+                        icon.textContent = '+';
+                    } else {
+                        icon.textContent = '−';
+                    }
+                });
+            });
+
+            const ctx = document.getElementById('universeCompositionChart');
+            if (ctx) {
+                new Chart(ctx.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['الطاقة المظلمة (68%)', 'المادة المظلمة (27%)', 'المادة العادية (5%)'],
+                        datasets: [{
+                            data: [68, 27, 5],
+                            backgroundColor: [
+                                '#6B7280', 
+                                '#D97706', 
+                                '#F59E0B'  
+                            ],
+                            borderColor: '#FFFAF0',
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    font: {
+                                        family: 'Tajawal',
+                                        size: 14
+                                    },
+                                    color: '#374151',
+                                    padding: 20
+                                }
+                            },
+                            tooltip: {
+                                titleFont: {
+                                    family: 'Tajawal'
+                                },
+                                bodyFont: {
+                                    family: 'Tajawal'
+                                },
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label = label.replace(/\(\d+%\)/, '');
+                                        }
+                                        if (context.parsed !== null) {
+                                            label += ': ' + context.parsed + '%';
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+        });
+    </script>
+
+</body>
+</html>
